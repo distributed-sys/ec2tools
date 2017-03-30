@@ -11,6 +11,15 @@ _fullfilled_status_code = [
   'fulfilled'
 ]
 
+def has_termination_notice(client, request_id):
+  resp = client.describe_spot_instance_requests(DryRun=False,
+    SpotInstanceRequestIds=[request_id])
+  if 'SpotInstanceRequests' in resp and resp['SpotInstanceRequests']:
+    return resp['SpotInstanceRequests'][0]['Status']['Code'] \
+      == 'marked-for-termination'
+  else:
+    return False
+
 def get_security_group_id(client, group_name):
   resp = client.describe_security_groups(DryRun=False, GroupNames=[group_name])
   if 'SecurityGroups' in resp and resp['SecurityGroups']:
@@ -29,8 +38,8 @@ def availability_zones(client):
   
   return zone_names
 
-# return a tuple of (instance_id, instance_public_dns_name, failed, 
-# failed_reason, timeout)
+# return a tuple of (spot_inst_req_id, instance_id, instance_public_dns_name,
+# failed, failed_reason, timeout)
 def request_ec2_spot_instance(client, image_id, availability_zone, 
     security_group_name, security_group_id, spot_price, instance_type):
   response = client.request_spot_instances(
@@ -60,7 +69,7 @@ def request_ec2_spot_instance(client, image_id, availability_zone,
     logging.info("state:" + state)
     if state not in ['open', 'active']:
       logging.warning('state not in [open, active]')
-      return instance_id, None, True, failed_reason, False   
+      return spot_instreq_id, instance_id, None, True, failed_reason, False   
     status_code = response['SpotInstanceRequests'][0]['Status']['Code']
     logging.info("status_code:" + status_code)
     if status_code in _fullfilled_status_code:
@@ -75,11 +84,11 @@ def request_ec2_spot_instance(client, image_id, availability_zone,
       if status_code == 'capacity-not-available':
         failed_reason = 'capacity-not-available'
       logging.warning('failed status code ' + status_code)
-      return instance_id, None, True, failed_reason, False
+      return spot_instreq_id, instance_id, None, True, failed_reason, False
 
   if instance_id is None:
     logging.warning('not fullfilled before timeout')
-    return instance_id, None, False, failed_reason, True
+    return spot_instreq_id, instance_id, None, False, failed_reason, True
 
   # start the instance
   max_wait = 90
@@ -93,14 +102,14 @@ def request_ec2_spot_instance(client, image_id, availability_zone,
     # status_code == 16  --> running
     if state_code == 16:
       dns = response['Reservations'][0]['Instances'][0]['PublicDnsName']
-      return instance_id, dns, False, failed_reason, False
+      return spot_instreq_id, instance_id, dns, False, failed_reason, False
     elif state_code == 0 or status_code == 256:
       max_wait -= 1
       time.sleep(1)
     else:
       # bad state
       logging.warning("unknown instance status code " + state_code)
-      return instance_id, None, True, failed_reason, False
+      return spot_instreq_id, instance_id, None, True, failed_reason, False
   
   logging.warning('instance not in the running state before timeout')
-  return instance_id, None, False, failed_reason, True
+  return spot_instreq_id, instance_id, None, False, failed_reason, True

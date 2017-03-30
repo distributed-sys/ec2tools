@@ -66,7 +66,7 @@ def create_or_insert_cluster(mode, cluster_name, regions, price,
       logging.debug("ami:" + ami + ",az:" + cur_az + ",grp name:" + \
         secgrp_name + ",grp id:" + secgrp_id + ",price:" + spot_price + \
         "type:" + instance_type)
-      instance_id, host, failed, reason, timeout = \
+      request_id, instance_id, host, failed, reason, timeout = \
         spot_instance.request_ec2_spot_instance(client, ami, cur_az, secgrp_name,\
           secgrp_id, spot_price, instance_type)
    
@@ -84,6 +84,7 @@ def create_or_insert_cluster(mode, cluster_name, regions, price,
       else:
         requested = True
         host_rec = {
+          'spot_request_id': request_id,
           "region": cur_region,
           "az": cur_az,
           "host": host,
@@ -145,18 +146,22 @@ def list_cluster(cluster_name):
   if db_rec['cluster_name'] != cluster_name:
     raise RuntimeError('db.cluster_name != cluster name')
 
+  print('inst_id,pub_dns_name,status,termation notified')
   for cur_member in db_rec["cluster_members"]:
     region = cur_member["region"]
     client = _get_client(region)
     iid = cur_member['instance_id']
     host = cur_member['host']
-
+    rid = cur_member['spot_request_id']
+    
+    tn = spot_instance.has_termination_notice(client, rid)
     logging.info("listing " + iid + ", from region " + region)
     resp = client.describe_instance_status(DryRun=False, InstanceIds=[iid])
     if 'InstanceStatuses' in resp and \
       len(resp['InstanceStatuses']) == 1:
       rec = resp['InstanceStatuses'][0]
-      print("%s, %s, %s" % (rec['InstanceId'], host, rec['InstanceState']['Name']))
+      print("%s, %s, %s, %s" % \
+        (rec['InstanceId'], host, rec['InstanceState']['Name'], tn))
 
 def main():
   parser = argparse.ArgumentParser(
