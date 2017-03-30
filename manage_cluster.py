@@ -47,7 +47,7 @@ def create_or_insert_cluster(mode, cluster_name, regions, price,
     client = _get_client(cur_region)
     zones = spot_instance.availability_zones(client)
     if not zones:
-      raise RuntimeError("no available zone for " + cur_region)
+      logging.warn("no available zone for region " + cur_region)
     
     secgrp_id = spot_instance.get_security_group_id(client, group_name)
     if secgrp_id is None:
@@ -59,7 +59,8 @@ def create_or_insert_cluster(mode, cluster_name, regions, price,
     ami = ec2_settings.ami_name[cur_region]
     spot_price = price
     instance_type = instance_type
-  
+    
+    requested = False 
     for cur_az in zones:
       logging.info("Processing " + cur_region + ", az " + cur_az)
       logging.debug("ami:" + ami + ",az:" + cur_az + ",grp name:" + \
@@ -81,6 +82,7 @@ def create_or_insert_cluster(mode, cluster_name, regions, price,
         op_failed = True
         break
       else:
+        requested = True
         host_rec = {
           "region": cur_region,
           "az": cur_az,
@@ -89,18 +91,19 @@ def create_or_insert_cluster(mode, cluster_name, regions, price,
           "instance_id": instance_id,
         }
         hosts.append(host_rec)
+        jsondb.insert_into_json_db(cluster_name, [host_rec], False)
         break
+
+    if not requested:
+      logging.warn("failed to request instance for region " + cur_region)
 
   if op_failed:
     _print_failed(hosts)
     sys.exit(1)
-
-  if mode == 'create':
-    jsondb.create_json_db(cluster_name, hosts)
   else:
-    jsondb.insert_into_json_db(cluster_name, hosts)
+    _print_done(hosts)
 
-  _print_done(hosts)
+  jsondb.insert_into_json_db(cluster_name, [], True)
 
 def terminate_cluster(cluster_name):
   if not jsondb.exist(cluster_name):
@@ -194,7 +197,7 @@ def main():
     help="whether to create a cluster or insert new instances")
   args = parser.parse_args()
 
-  logging.basicConfig(level=logging.INFO)
+  logging.basicConfig(level=logging.WARN)
 
   if not jsondb.is_valid_cluster_name(args.cluster_name):
     raise RuntimeError("invalid cluster name, only [0-9a-zA-Z] are allowed")

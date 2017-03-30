@@ -67,13 +67,14 @@ def create_json_db(cluster_name, members):
   with open(fn, 'w') as f:
     f.write(json.dump(rec))
 
-def insert_into_json_db(cluster_name, members):
+def insert_into_json_db(cluster_name, members, complete):
   _validate_cluster_name(cluster_name)
 
   if exist(cluster_name):
     rec = read_json_db(cluster_name)
   else:
     rec = {
+      'complete': complete,
       'cluster_name': cluster_name,
       'cluster_members': []
     }
@@ -86,6 +87,7 @@ def insert_into_json_db(cluster_name, members):
       raise RuntimeError("duplicated instance id")
   
   rec['cluster_members'] = rec['cluster_members'] + members
+  rec['complete'] = complete
   fn = _get_cluster_json_db_filename(cluster_name)
   with open(fn, 'w') as f:
     f.write(json.dumps(rec))
