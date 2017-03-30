@@ -1,6 +1,5 @@
 from __future__ import print_function
 
-import os
 import sys
 import argparse
 import boto3
@@ -94,7 +93,7 @@ def create_or_insert_cluster(mode, cluster_name, regions, price,
 
   if op_failed:
     _print_failed(hosts)
-    os.Exit(1)
+    sys.exit(1)
 
   if mode == 'create':
     jsondb.create_json_db(cluster_name, hosts)

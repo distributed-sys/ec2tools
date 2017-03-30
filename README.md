@@ -19,7 +19,8 @@ Create a small cluster using EC2 Spot Instance type c3.large, one from each of t
 * eu-west-1
 
 ```
-python manage_cluster.py --mode insert --cluster-name test1 --region us-west-1,us-east-1,eu-west-1 --instance-type c3.large --security-group my-sg
+python manage_cluster.py --mode insert --cluster-name test1 \
+--region us-west-1,us-east-1,eu-west-1 --instance-type c3.large --security-group my-sg
 ```
 
 Once completed, the details will be recorded into a local json file named test1.json. You can now list the details:

@@ -72,8 +72,8 @@ def request_ec2_spot_instance(client, image_id, availability_zone,
       continue
     else:
       # worth to try the next availability zone
-      if status_code == 'capacity-not-availably':
-        failed_reason = 'capacity-not-availably'
+      if status_code == 'capacity-not-available':
+        failed_reason = 'capacity-not-available'
       logging.warning('failed status code ' + status_code)
       return instance_id, None, True, failed_reason, False
 
